@@ -23,7 +23,7 @@ public class LoginGUI extends JFrame {
     private final JTextField usernameField;
     private final JPasswordField passwordField;
     private final Map<String, String> credentialsMap = new HashMap<>();
-    private final String employeeFile = "src/main/resources/Employee Details.csv";
+    private final String employeeFile = "src/main/resources/User.csv";
 
     public LoginGUI() {
         setTitle("Employee Login");
@@ -33,7 +33,7 @@ public class LoginGUI extends JFrame {
         setResizable(false);
 
         // Load credentials
-        loadCredentialsFromTSV();
+        loadCredentialsFromCSV();
 
         // GUI layout
         JPanel panel = new JPanel(new GridBagLayout());
@@ -104,9 +104,8 @@ public class LoginGUI extends JFrame {
 
     }
 
-    private void loadCredentialsFromTSV() {
-    // Add hardcoded admin credentials
-    credentialsMap.put("admin", "1234");
+        private void loadCredentialsFromCSV() {
+        credentialsMap.put("admin", "1234"); // Admin access
 
         try (BufferedReader reader = new BufferedReader(new FileReader(employeeFile))) {
             String line;
@@ -119,7 +118,9 @@ public class LoginGUI extends JFrame {
                     isHeader = false;
                     continue;
                 }
-                String[] tokens = line.split("\t");
+
+                String[] tokens = line.split(",", -1); // comma-separated
+
                 if (tokens.length >= 4) {
                     String employeeNumber = tokens[0].trim();
                     String birthdayRaw = tokens[3].trim();
@@ -127,7 +128,7 @@ public class LoginGUI extends JFrame {
                     if (!employeeNumber.isEmpty() && !birthdayRaw.equalsIgnoreCase("TBD")) {
                         try {
                             LocalDate birthday = LocalDate.parse(birthdayRaw, inputFormatter);
-                            String formattedPassword = birthday.format(passwordFormatter);  // MMddyyyy
+                            String formattedPassword = birthday.format(passwordFormatter); // MMddyyyy
                             credentialsMap.put(employeeNumber, formattedPassword);
                         } catch (Exception e) {
                             System.err.println("Invalid birthday format for employee " + employeeNumber + ": " + birthdayRaw);
@@ -137,38 +138,37 @@ public class LoginGUI extends JFrame {
             }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this,
-                    "Failed to load employee data.\n" + e.getMessage(),
-                    "File Error", JOptionPane.ERROR_MESSAGE);
+                "Failed to load employee data.\n" + e.getMessage(),
+                "File Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
+
+
    private void attemptLogin() {
-    String enteredUser = usernameField.getText().trim();
-    String enteredPass = new String(passwordField.getPassword()).trim();
+        String enteredUser = usernameField.getText().trim();
+        String enteredPass = new String(passwordField.getPassword()).trim();
 
-    // Optional admin login
-    if (enteredUser.equals("admin") && enteredPass.equals("1234")) {
-        JOptionPane.showMessageDialog(this, "Admin login successful!", "Welcome Admin", JOptionPane.INFORMATION_MESSAGE);
+        // Check for empty input
+        if (enteredUser.isEmpty() || enteredPass.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter both username and password.", "Input Required", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
-        // Optional: Open a different admin GUI, e.g., AdminDashboardGUI
-        SwingUtilities.invokeLater(() -> {
-            new PayrollGUI().setVisible(true); // Change this to AdminDashboardGUI if you have one
-        });
-
-        dispose();
-        return;
-    }
+        // Admin login
+        if (enteredUser.equals("admin") && enteredPass.equals("1234")) {
+            JOptionPane.showMessageDialog(this, "Admin login successful!", "Welcome Admin", JOptionPane.INFORMATION_MESSAGE);
+            SwingUtilities.invokeLater(() -> new PayrollGUI("admin").setVisible(true));
+            dispose();
+            return;
+        }
 
         // Regular employee login
         if (credentialsMap.containsKey(enteredUser)) {
             String expectedPass = credentialsMap.get(enteredUser);
             if (enteredPass.equals(expectedPass)) {
                 JOptionPane.showMessageDialog(this, "Login successful!", "Welcome", JOptionPane.INFORMATION_MESSAGE);
-
-                SwingUtilities.invokeLater(() -> {
-                    new PayrollGUI().setVisible(true);
-                });
-
+                SwingUtilities.invokeLater(() -> new PayrollGUI(enteredUser).setVisible(true));
                 dispose();
             } else {
                 JOptionPane.showMessageDialog(this, "Incorrect password (birthday).", "Login Failed", JOptionPane.ERROR_MESSAGE);
@@ -177,6 +177,7 @@ public class LoginGUI extends JFrame {
             JOptionPane.showMessageDialog(this, "Employee number not found.", "Login Failed", JOptionPane.ERROR_MESSAGE);
         }
     }
+
 
     // Main method
     public static void main(String[] args) {

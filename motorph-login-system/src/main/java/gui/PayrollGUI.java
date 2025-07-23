@@ -68,7 +68,7 @@ public class PayrollGUI extends JFrame {
     private JButton deleteEmployeeButton;            // Button to delete selected employee record
     private TableRowSorter<DefaultTableModel> sorter; // Sorter for enabling table column sorting
     private JButton logoutButton;                  // Button to log out of the system (if needed)
-    
+    private String loggedInEmployeeNumber; // NEW FIELD
 
     // Add search components
     private JTextField searchField;                  // Search field for employee number
@@ -93,34 +93,29 @@ public class PayrollGUI extends JFrame {
     private EmployeeProfile selectedEmployee;       // Currently selected employee from the table
 
     /**
-     * Constructor that initializes the main Employee Management GUI and sets up all components.
-     * This method loads employee data from the file system, creates the employee table with
-     * sorting capabilities, configures action buttons, and establishes the overall layout
-     * for optimal user experience and intuitive navigation.
+     * Constructor that initializes the main Employee Management GUI and sets up all components.This method loads employee data from the file system, creates the employee table with
+ sorting capabilities, configures action buttons, and establishes the overall layout
+ for optimal user experience and intuitive navigation.
+     * @param employeeNumber
      */
-    public PayrollGUI() {
-        // Initialize collections first
-        employees = new ArrayList<>();
-        
-        // Set up the main window
-        setTitle("Payroll Management System");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLayout(new BorderLayout());
-        
-        // Initialize all GUI components FIRST (including table model)
-        initializeComponents();
-        layoutComponents();
-        
-        // THEN load employee data after table model is initialized
-        loadEmployeeData();
-        
-        // Configure window properties
-        setSize(1000, 700);
-        setMinimumSize(new Dimension(800, 600));
-        setLocationRelativeTo(null);
-        setResizable(true);
-    }
+        public PayrollGUI(String employeeNumber) {
+            this.loggedInEmployeeNumber = employeeNumber;
+            employees = new ArrayList<>();
 
+            setTitle("Payroll Management System");
+            setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            setLayout(new BorderLayout());
+
+            initializeComponents();
+            layoutComponents();
+
+            loadEmployeeData();
+
+            setSize(1000, 700);
+            setMinimumSize(new Dimension(800, 600));
+            setLocationRelativeTo(null);
+            setResizable(true);
+        }
     /**
      * Initializes all GUI components required for the payroll management interface.
      * Sets up the main table, buttons, editing fields, and their initial configurations
@@ -169,47 +164,39 @@ public class PayrollGUI extends JFrame {
      * and initial states for optimal user experience.
      */
     private void initializeButtons() {
-        // Employee management buttons
+        // Create buttons first
         viewEmployeeButton = new JButton("View Details");
         viewEmployeeButton.setEnabled(false);
-        viewEmployeeButton.setToolTipText("View detailed information for the selected employee");
 
         newEmployeeButton = new JButton("New Employee");
-        newEmployeeButton.setToolTipText("Add a new employee to the system");
-
         updateEmployeeButton = new JButton("Update Employee");
-        updateEmployeeButton.setEnabled(false);
-        updateEmployeeButton.setToolTipText("Update information for the selected employee");
-
         deleteEmployeeButton = new JButton("Delete Employee");
-        deleteEmployeeButton.setEnabled(false);
-        deleteEmployeeButton.setToolTipText("Delete the selected employee from the system");
 
-        // Search components
         searchField = new JTextField(15);
-        searchField.setToolTipText("Enter employee number to search and view details");
-        searchField.addActionListener(e -> searchAndViewEmployee()); // Allow Enter key to search
-        
         searchButton = new JButton("Search & View");
-        searchButton.setToolTipText("Search for employee by number and open their details");
-        
-        // Add event listeners
+
+        logoutButton = new JButton("Logout");
+
+        // Add listeners (unchanged)
         viewEmployeeButton.addActionListener(e -> viewEmployeeDetails());
         newEmployeeButton.addActionListener(e -> openNewEmployeeDialog());
         updateEmployeeButton.addActionListener(e -> updateEmployee());
         deleteEmployeeButton.addActionListener(e -> deleteEmployee());
         searchButton.addActionListener(e -> searchAndViewEmployee());
 
-        //Add logout button if needed
-        logoutButton = new JButton("Logout");
-        logoutButton.setToolTipText("Log out and return to the login screen");
-
         logoutButton.addActionListener(e -> {
-            dispose(); // Close current window
-            SwingUtilities.invokeLater(() -> new LoginGUI().setVisible(true)); // Return to login
+            dispose();
+            SwingUtilities.invokeLater(() -> new LoginGUI().setVisible(true));
         });
 
+        // ✅ DISABLE edit features if not admin — AFTER initialization
+        if (!"admin".equalsIgnoreCase(loggedInEmployeeNumber)) {
+            newEmployeeButton.setEnabled(false);
+            updateEmployeeButton.setEnabled(false);
+            deleteEmployeeButton.setEnabled(false);
+        }
     }
+
 
     /**
      * Initializes all text fields used for editing employee information.
@@ -224,7 +211,7 @@ public class PayrollGUI extends JFrame {
         employeeNumberField.setToolTipText("Employee number - read-only field");
         
         employeeNumberField.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(Color.GRAY, 1),
+            BorderFactory.createLineBorder(Color.BLUE, 1),
             BorderFactory.createEmptyBorder(2, 4, 2, 4)
         ));
 
@@ -823,28 +810,32 @@ public class PayrollGUI extends JFrame {
      */
     private void loadEmployeeData() {
         try {
-            // Define the path to the employee data file as String
             String employeeFilePath = "src\\main\\resources/Employee Details.csv";
-            
-            // Load employees using the LoadEmployeeData utility class with String path
-            employees = LoadEmployeeData.loadFromFile(employeeFilePath);
-            
-            // Refresh the table display with the loaded data
+            List<EmployeeProfile> allEmployees = LoadEmployeeData.loadFromFile(employeeFilePath);
+
+            // If logged in as admin, show all employees
+            if ("admin".equalsIgnoreCase(loggedInEmployeeNumber)) {
+                this.employees = allEmployees;
+            } else {
+                // Only include the logged-in employee's record
+                this.employees = allEmployees.stream()
+                    .filter(emp -> emp.getEmployeeNumber().equals(loggedInEmployeeNumber))
+                    .toList();
+            }
+
             refreshEmployeeData();
-            
         } catch (Exception e) {
-            // Handle file loading errors
-            JOptionPane.showMessageDialog(this, 
-                "Error loading employee data:\n" + e.getMessage() + 
-                "\n\nThe application will start with an empty employee list.", 
-                "Data Loading Error", 
-                JOptionPane.WARNING_MESSAGE);
-            
-            // Initialize with empty list if loading fails
+            JOptionPane.showMessageDialog(this,
+                    "Error loading employee data:\n" + e.getMessage() +
+                            "\n\nThe application will start with an empty employee list.",
+                    "Data Loading Error",
+                    JOptionPane.WARNING_MESSAGE);
+
             employees = new ArrayList<>();
             refreshEmployeeData();
         }
     }
+
 
     /**
      * Refreshes the employee data display by reloading the table model.
@@ -1047,7 +1038,7 @@ public class PayrollGUI extends JFrame {
     if (hasSelection) {
         try {
             int empNum = Integer.parseInt(employeeNumberField.getText().trim());
-            if (empNum >= 10001 && empNum <= 11000) {
+            if (empNum >= 10001 && empNum <= 10010) {
                 hasEditAccess = true;
             }
         } catch (NumberFormatException e) {
